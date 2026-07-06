@@ -6,7 +6,7 @@ import { useAnonymousIdentity } from "../hooks/useAnonymousIdentity";
 import { useParticipants } from "../hooks/useParticipants";
 import { myAssetStore } from "../assetStore";
 
-const ROOM_TIMEOUT_MS = 8000;
+const ROOM_TIMEOUT_MS = 5000;
 
 // ─── Loading Screen ───────────────────────────────────────────────
 
@@ -36,11 +36,11 @@ function ErrorScreen({ message, onRetry }: { message: string; onRetry: () => voi
 // ─── Room Header ──────────────────────────────────────────────────
 
 function RoomHeader({
-  roomId, participantCount, isHost, name, onNameChange, onCopy, onShare,
+  roomId, participantCount, isHost, name, onNameChange, onCopy,
 }: {
   roomId: string; participantCount: number; isHost: boolean;
   name: string; onNameChange: (n: string) => void;
-  onCopy: () => void; onShare: () => void;
+  onCopy: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
@@ -55,7 +55,6 @@ function RoomHeader({
   return (
     <div style={S.header}>
       <div style={S.headerLeft}>
-        <button onClick={onCopy} style={S.codeBadge} title="Copiar código">{roomId}</button>
         <span style={S.participantCount}>{participantCount} {participantCount === 1 ? "participante" : "participantes"}</span>
       </div>
       <div style={S.headerCenter}>
@@ -66,10 +65,10 @@ function RoomHeader({
         ) : (
           <button onClick={() => { setDraft(name); setEditing(true); }} style={S.nameDisplay} title="Clic para editar">{name}</button>
         )}
+        {isHost && <span style={S.hostBadge} title="Anfitrión">👑 Host</span>}
       </div>
       <div style={S.headerRight}>
-        {isHost && <span style={S.hostBadge} title="Anfitrión">👑 Host</span>}
-        <button onClick={onShare} style={S.shareButton}>📋 Compartir sala</button>
+        <button onClick={onCopy} style={S.codeBadge} title="Copiar código">{roomId}</button>
       </div>
     </div>
   );
@@ -127,21 +126,7 @@ export default function RoomPage() {
   const location = useLocation();
   const { id, name, color, setName } = useAnonymousIdentity();
   const [timedOut, setTimedOut] = useState(false);
-  const [dark, setDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
   const [toast, setToast] = useState<string | null>(null);
-
-  // System dark mode listener
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const h = (e: MediaQueryListEvent) => setDark(e.matches);
-    mq.addEventListener("change", h);
-    return () => mq.removeEventListener("change", h);
-  }, []);
-
-  // Apply dark class to body
-  useEffect(() => {
-    document.body.classList.toggle("dark", dark);
-  }, [dark]);
 
   const { participants, hostId } = useParticipants(roomId!, { id, name, color });
   const isHost = hostId === id || (hostId === null && (location.state as any)?.isHost);
@@ -158,7 +143,6 @@ export default function RoomPage() {
 
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
   const copyCode = () => navigator.clipboard.writeText(roomId!).then(() => flash("¡Código copiado!"));
-  const share = () => navigator.clipboard.writeText(window.location.href).then(() => flash("¡Link copiado!"));
 
   // Timed out
   if (storeWithStatus.status === "loading" && timedOut) {
@@ -182,7 +166,7 @@ export default function RoomPage() {
       <div style={S.container}>
         <ConnectionBanner status={{ kind: "loading" }} />
         <RoomHeader roomId={roomId!} participantCount={participants.length||1} isHost={isHost}
-          name={name} onNameChange={setName} onCopy={copyCode} onShare={share} />
+          name={name} onNameChange={setName} onCopy={copyCode} />
         <LoadingScreen />
         {toast && <Toast msg={toast} />}
       </div>
@@ -195,7 +179,7 @@ export default function RoomPage() {
       <div style={S.container}>
         <ConnectionBanner status={{ kind: "error" }} />
         <RoomHeader roomId={roomId!} participantCount={participants.length||1} isHost={isHost}
-          name={name} onNameChange={setName} onCopy={copyCode} onShare={share} />
+          name={name} onNameChange={setName} onCopy={copyCode} />
         <ErrorScreen message={storeWithStatus.error instanceof Error ? storeWithStatus.error.message : "No se pudo conectar."}
           onRetry={() => window.location.reload()} />
       </div>
@@ -207,14 +191,11 @@ export default function RoomPage() {
     <div style={S.container}>
       <ConnectionBanner status={{ kind: "synced-remote", online: storeWithStatus.connectionStatus === "online" }} />
       <RoomHeader roomId={roomId!} participantCount={participants.length} isHost={isHost}
-        name={name} onNameChange={setName} onCopy={copyCode} onShare={share} />
+        name={name} onNameChange={setName} onCopy={copyCode} />
       <div style={S.mainArea}>
         <ParticipantList participants={participants} currentUserId={id} />
         <div style={S.canvas}><Tldraw store={storeWithStatus.store} /></div>
       </div>
-      <button onClick={() => setDark(!dark)} style={S.darkToggle} title={dark ? "Modo claro" : "Modo oscuro"}>
-        {dark ? "☀️" : "🌙"}
-      </button>
       {toast && <Toast msg={toast} />}
     </div>
   );
