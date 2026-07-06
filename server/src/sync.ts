@@ -1,5 +1,4 @@
 import type { WebSocket } from "ws";
-import type { WebSocketMinimal } from "@tldraw/sync-core";
 import { v4 as uuidv4 } from "uuid";
 import type {
   RoomCode,
@@ -24,55 +23,12 @@ import {
  * TLSocketRoom expects.  The `ws` library uses EventEmitter (.on / .off)
  * whereas TLSocketRoom calls addEventListener / removeEventListener.
  */
-export function adaptWsSocket(ws: WebSocket): WebSocketMinimal {
-  const listeners: Record<string, Array<(event: any) => void>> = {
-    message: [],
-    close: [],
-    error: [],
-  };
-
-  ws.on("message", (data: Buffer) => {
-    // Pass raw data — tldraw binary protocol needs the Buffer, not a string
-    const event = { data };
-    for (const fn of listeners.message) fn(event);
-  });
-
-  ws.on("close", (code: number, reason: Buffer) => {
-    const event = { code, reason: reason?.toString() ?? "" };
-    for (const fn of listeners.close) fn(event);
-  });
-
-  ws.on("error", (error: Error) => {
-    const event = { error };
-    for (const fn of listeners.error) fn(event);
-  });
-
-  return {
-    addEventListener(type, listener) {
-      listeners[type]?.push(listener);
-    },
-    removeEventListener(type, listener) {
-      const arr = listeners[type];
-      if (arr) listeners[type] = arr.filter((l) => l !== listener);
-    },
-    send(data: string) {
-      if (ws.readyState === 1) ws.send(data);
-    },
-    close(code?: number, reason?: string) {
-      ws.close(code, reason);
-    },
-    get readyState() {
-      return ws.readyState;
-    },
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Per-connection state tracking (for custom-message broadcasting)
 // ---------------------------------------------------------------------------
 
-const participantSockets = new Map<string, WebSocket>(); // participantId → raw ws
-const lastCursorBroadcast = new Map<string, number>(); // participantId → timestamp
+const participantSockets = new Map<string, WebSocket>();
+const lastCursorBroadcast = new Map<string, number>();
 const CURSOR_THROTTLE_MS = 66; // 15fps ~= 66ms between broadcasts
 
 // ---------------------------------------------------------------------------
@@ -82,10 +38,9 @@ const CURSOR_THROTTLE_MS = 66; // 15fps ~= 66ms between broadcasts
 /**
  * Handle a new WebSocket sync connection for a given room.
  *
- * 1. Validates the room exists.
- * 2. Creates a TLSocketRoom adapter and registers for CRDT sync.
- * 3. Listens for custom client messages (join, leave, cursor, nameChange).
- * 4. Handles disconnect / host transfer / cleanup.
+ * TLSocketRoom uses the raw ws socket directly (no adapter needed — ws satisfies
+ * send/close/readyState). Since ws uses .on() instead of addEventListener,
+ * we must manually call handleSocketMessage / handleSocketClose / handleSocketError.
  */
 export function handleSyncConnection(
   ws: WebSocket,
@@ -101,11 +56,21 @@ export function handleSyncConnection(
   const participantId = sessionId || uuidv4();
   participantSockets.set(participantId, ws);
 
-  // ---- TLSocketRoom CRDT sync ----
-  const socketAdapter = adaptWsSocket(ws);
+  // ---- TLSocketRoom CRDT sync (raw ws — no adapter) ----
   roomState.room.handleSocketConnect({
     sessionId: participantId,
-    socket: socketAdapter,
+    socket: ws as any, // ws satisfies send/close/readyState but not addEventListener
+  });
+
+  // Manually forward messages + lifecycle to TLSocketRoom
+  ws.on("message", (data: Buffer) => {
+    roomState.room.handleSocketMessage(participantId, data);
+  });
+  ws.on("close", () => {
+    roomState.room.handleSocketClose(participantId);
+  });
+  ws.on("error", () => {
+    roomState.room.handleSocketError(participantId);
   });
 
   // ---- Custom protocol handler ----
@@ -144,12 +109,7 @@ export function handleSyncConnection(
   // ---- Disconnect ----
   ws.on("close", () => {
     handleLeave(roomCode, participantId);
-    roomState.room.handleSocketClose(participantId);
     participantSockets.delete(participantId);
-  });
-
-  ws.on("error", () => {
-    roomState.room.handleSocketError(participantId);
   });
 }
 
