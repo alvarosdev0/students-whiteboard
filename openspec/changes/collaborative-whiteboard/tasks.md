@@ -45,8 +45,8 @@ Chain strategy: feature-branch-chain
 
 ## Phase 4: Sync Server — PR 4
 
-- [ ] T-008 Create `server/src/rooms.ts`: in-memory `Map<RoomCode,RoomState>`, code generation (5–6 uppercase, collision retry 3×→7 chars), create/validate/join/leave, `connectedAt` tracking, host promotion (30s timer→longest-connected→broadcast), room destruction on empty. (~120 lines) — Deps: T-001, T-003 — Reqs: ROOM-001..006
-- [ ] T-009 Create `server/src/sync.ts` + wire `server/src/index.ts`: WebSocket upgrade at `/ws/:roomCode`, `TLSocketRoom` factory per room, CRDT relay, presence broadcast (15fps throttle), Express routes `POST /api/rooms` + `GET /api/rooms/:roomCode`. (~100 lines) — Deps: T-008 — Reqs: SYNC-001..004
+- [x] T-008 Create `server/src/rooms.ts`: in-memory `Map<RoomCode,RoomState>`, code generation (5–6 uppercase, collision retry 3×→7 chars), create/validate/join/leave, `connectedAt` tracking, host promotion (30s timer→longest-connected→broadcast), room destruction on empty. (~120 lines) — Deps: T-001, T-003 — Reqs: ROOM-001..006
+- [x] T-009 Create `server/src/sync.ts` + wire `server/src/index.ts`: WebSocket upgrade at `/ws/:roomCode`, `TLSocketRoom` factory per room, CRDT relay, presence broadcast (15fps throttle), Express routes `POST /api/rooms` + `GET /api/rooms/:roomCode`. (~100 lines) — Deps: T-008 — Reqs: SYNC-001..004
 
 ## Phase 5: Room Page & Whiteboard — PR 5
 
