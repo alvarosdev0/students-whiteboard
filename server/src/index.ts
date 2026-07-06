@@ -50,8 +50,8 @@ const wss = new WebSocketServer({ noServer: true });
 server.on("upgrade", (request: IncomingMessage, socket, head) => {
   const url = request.url ?? "";
 
-  // Parse room code from path: /sync/:roomCode
-  const match = url.match(/^\/sync\/([A-Z2-9]{5,7})$/i);
+  // Parse room code from path: /sync/:roomCode (before any query string)
+  const match = url.match(/^\/sync\/([A-Z2-9]{5,7})/i);
   if (!match) {
     socket.destroy();
     return;

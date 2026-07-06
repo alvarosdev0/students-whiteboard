@@ -11,36 +11,28 @@ import {
   addParticipant,
   removeParticipant,
   getParticipants,
-  resolveHostId,
 } from "./rooms.js";
 
 // ---------------------------------------------------------------------------
-// ws → WebSocketMinimal adapter for TLSocketRoom
-// ---------------------------------------------------------------------------
-
-/**
- * Adapts a `ws` WebSocket to the {@link WebSocketMinimal} interface that
- * TLSocketRoom expects.  The `ws` library uses EventEmitter (.on / .off)
- * whereas TLSocketRoom calls addEventListener / removeEventListener.
- */
-// ---------------------------------------------------------------------------
-// Per-connection state tracking (for custom-message broadcasting)
+// Per-connection state (custom protocol broadcasting)
 // ---------------------------------------------------------------------------
 
 const participantSockets = new Map<string, WebSocket>();
 const lastCursorBroadcast = new Map<string, number>();
-const CURSOR_THROTTLE_MS = 66; // 15fps ~= 66ms between broadcasts
+const CURSOR_THROTTLE_MS = 66; // 15fps
 
 // ---------------------------------------------------------------------------
 // Connection handler
 // ---------------------------------------------------------------------------
 
 /**
- * Handle a new WebSocket sync connection for a given room.
+ * Handle a new WebSocket sync connection for a room.
  *
- * TLSocketRoom uses the raw ws socket directly (no adapter needed — ws satisfies
- * send/close/readyState). Since ws uses .on() instead of addEventListener,
- * we must manually call handleSocketMessage / handleSocketClose / handleSocketError.
+ * Pattern follows the official tldraw simple-server-example:
+ *   - Pass raw ws socket to handleSocketConnect — TLSocketRoom auto-wires
+ *     via ws.on("message"), no adapter or manual handleSocketMessage needed.
+ *   - Custom JSON messages (join/leave/cursor/nameChange) are handled
+ *     in a separate on("message") listener that skips non-JSON data.
  */
 export function handleSyncConnection(
   ws: WebSocket,
@@ -56,57 +48,40 @@ export function handleSyncConnection(
   const participantId = sessionId || uuidv4();
   participantSockets.set(participantId, ws);
 
-  // ---- TLSocketRoom CRDT sync (raw ws — no adapter) ----
+  // ---- TLSocketRoom CRDT sync (raw ws, auto-wired) ----
+  // TLSocketRoom internally uses ws.on("message") / ws.on("close")
+  // to handle the tldraw sync protocol. No adapter needed.
   roomState.room.handleSocketConnect({
     sessionId: participantId,
-    socket: ws as any, // ws satisfies send/close/readyState but not addEventListener
+    socket: ws as any, // ws satisfies send/close/readyState/on — works natively
   });
 
-  // Manually forward messages + lifecycle to TLSocketRoom
-  ws.on("message", (data: Buffer) => {
-    roomState.room.handleSocketMessage(participantId, data);
-  });
-  ws.on("close", () => {
-    roomState.room.handleSocketClose(participantId);
-  });
-  ws.on("error", () => {
-    roomState.room.handleSocketError(participantId);
-  });
-
-  // ---- Custom protocol handler ----
+  // ---- Custom protocol handler (join/leave/cursor/nameChange) ----
   ws.on("message", (data: Buffer) => {
     let msg: ClientMessage;
     try {
       msg = JSON.parse(data.toString());
     } catch {
-      // Non-JSON (chunked tldraw messages) — TLSocketRoom handles those
-      return;
+      return; // Not JSON → tldraw binary protocol → TLSocketRoom handles it
     }
 
     switch (msg.type) {
-      case "join": {
+      case "join":
         handleJoin(roomCode, participantId, msg.name, msg.color, ws);
         break;
-      }
-      case "leave": {
+      case "leave":
         handleLeave(roomCode, participantId);
         break;
-      }
-      case "nameChange": {
+      case "nameChange":
         handleNameChange(roomCode, participantId, msg.name);
         break;
-      }
-      case "cursor": {
+      case "cursor":
         handleCursor(roomCode, participantId, msg.x, msg.y);
-        break;
-      }
-      // Unknown / tldraw-internal messages — ignored here, TLSocketRoom handles them
-      default:
         break;
     }
   });
 
-  // ---- Disconnect ----
+  // ---- Disconnect cleanup ----
   ws.on("close", () => {
     handleLeave(roomCode, participantId);
     participantSockets.delete(participantId);
@@ -137,34 +112,24 @@ function handleJoin(
 
   // Send full room state to the joining participant
   const participants = getParticipants(roomCode);
-  const stateMsg: ServerMessage = {
+  sendTo(ws, {
     type: "roomState",
     participants,
     hostId: hostId ?? "",
-  };
-  sendTo(ws, stateMsg);
+  });
 
   // Broadcast join to others
-  const joinMsg: ServerMessage = {
-    type: "participantJoined",
-    participant,
-  };
-  broadcastToRoom(roomCode, joinMsg, participantId);
+  broadcastToRoom(roomCode, { type: "participantJoined", participant }, participantId);
 }
 
 function handleLeave(roomCode: RoomCode, participantId: string): void {
   const { removed, newHostId } = removeParticipant(roomCode, participantId);
   if (!removed) return;
 
-  // Broadcast departure
   broadcastToRoom(roomCode, { type: "participantLeft", id: participantId });
 
-  // If host transfer resolved, broadcast it
   if (newHostId) {
-    broadcastToRoom(roomCode, {
-      type: "hostChanged",
-      newHostId,
-    });
+    broadcastToRoom(roomCode, { type: "hostChanged", newHostId });
   }
 }
 
@@ -179,11 +144,7 @@ function handleNameChange(
   const pt = state.participants.get(participantId);
   if (pt) pt.name = name;
 
-  broadcastToRoom(roomCode, {
-    type: "nameChanged",
-    id: participantId,
-    name,
-  });
+  broadcastToRoom(roomCode, { type: "nameChanged", id: participantId, name });
 }
 
 function handleCursor(
@@ -192,7 +153,6 @@ function handleCursor(
   x: number,
   y: number
 ): void {
-  // Throttle cursor broadcasts to 15fps
   const now = Date.now();
   const last = lastCursorBroadcast.get(participantId) ?? 0;
   if (now - last < CURSOR_THROTTLE_MS) return;
@@ -206,7 +166,7 @@ function handleCursor(
 }
 
 // ---------------------------------------------------------------------------
-// Broadcasting
+// Broadcasting helpers
 // ---------------------------------------------------------------------------
 
 function sendTo(ws: WebSocket, message: ServerMessage): void {
@@ -224,11 +184,10 @@ function broadcastToRoom(
   if (!state) return;
 
   const data = JSON.stringify(message);
-
   for (const [id] of state.participants) {
     if (id === excludeParticipantId) continue;
     const sock = participantSockets.get(id);
-    if (sock && sock.readyState === 1) {
+    if (sock?.readyState === 1) {
       sock.send(data);
     }
   }
