@@ -32,7 +32,8 @@ export function adaptWsSocket(ws: WebSocket): WebSocketMinimal {
   };
 
   ws.on("message", (data: Buffer) => {
-    const event = { data: data.toString() };
+    // Pass raw data — tldraw binary protocol needs the Buffer, not a string
+    const event = { data };
     for (const fn of listeners.message) fn(event);
   });
 
@@ -131,7 +132,7 @@ export function handleSyncConnection(
         break;
       }
       case "cursor": {
-        handleCursor(roomCode, participantId, msg.x, msg.y, ws);
+        handleCursor(roomCode, participantId, msg.x, msg.y);
         break;
       }
       // Unknown / tldraw-internal messages — ignored here, TLSocketRoom handles them
@@ -229,8 +230,7 @@ function handleCursor(
   roomCode: RoomCode,
   participantId: string,
   x: number,
-  y: number,
-  _ws: WebSocket
+  y: number
 ): void {
   // Throttle cursor broadcasts to 15fps
   const now = Date.now();
