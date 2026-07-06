@@ -2,33 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import LandingPage from "./components/LandingPage";
-
-// ─── Placeholder for /room/:roomId (implemented in PR 5) ──────────
-
-function RoomPagePlaceholder() {
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
-        textAlign: "center" as const,
-        padding: 24,
-      }}
-    >
-      <div>
-        <h2 style={{ fontSize: 20, color: "#374151", margin: 0 }}>
-          Sala de colaboración
-        </h2>
-        <p style={{ fontSize: 15, color: "#6b7280", marginTop: 8 }}>
-          Esta página estará disponible en una próxima actualización.
-        </p>
-      </div>
-    </div>
-  );
-}
+import RoomPage from "./components/RoomPage";
 
 // ─── 404 ──────────────────────────────────────────────────────────
 
@@ -99,7 +73,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/room/:roomId",
-    element: <RoomPagePlaceholder />,
+    element: <RoomPage />,
   },
   {
     path: "*",

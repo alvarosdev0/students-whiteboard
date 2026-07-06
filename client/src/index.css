@@ -1,0 +1,9 @@
+/* Spinner animation for RoomPage loading screen */
+@keyframes app-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.app-spinner {
+  animation: app-spin 0.8s linear infinite;
+}
