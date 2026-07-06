@@ -35,8 +35,8 @@ Chain strategy: feature-branch-chain
 
 ## Phase 2: Client Hooks — PR 2
 
-- [ ] T-004 Create `client/src/hooks/useAnonymousIdentity.ts`: random name from ≥20 adjectives × ≥20 animals, random color from 16-color palette (avoid same-room collision), inline edit (2–30 chars, 2s debounce), persist `wb:user`. (~60 lines) — Deps: T-002 — Reqs: IDENTITY-001..005
-- [ ] T-005 Create `client/src/hooks/useLocalStorage.ts`: auto-save `wb:{roomCode}:document` (2s debounce), restore/merge (server authoritative), `beforeunload` force-save, `navigator.storage.estimate()` quota warning at 4MB, prune oldest (keep 5). (~70 lines) — Deps: T-002 — Reqs: PERSIST-001..005
+- [x] T-004 Create `client/src/hooks/useAnonymousIdentity.ts`: random name from ≥20 adjectives × ≥20 animals, random color from 16-color palette (avoid same-room collision), inline edit (2–30 chars, 2s debounce), persist `wb:user`. (~60 lines) — Deps: T-002 — Reqs: IDENTITY-001..005
+- [x] T-005 Create `client/src/hooks/useLocalStorage.ts`: auto-save `wb:{roomCode}:document` (2s debounce), restore/merge (server authoritative), `beforeunload` force-save, `navigator.storage.estimate()` quota warning at 4MB, prune oldest (keep 5). (~70 lines) — Deps: T-002 — Reqs: PERSIST-001..005
 
 ## Phase 3: Landing Page & Router — PR 3
 
