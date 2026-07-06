@@ -1,19 +1,24 @@
 // === RoomPage — Collaborative Whiteboard Room ===
 // T-010: Room-level component integrating tldraw canvas with real-time sync.
+// T-011: Participant management via second WebSocket + name editing.
 //
 // Architecture:
 //   <RoomPage>
-//     ├── <RoomHeader>     — room code, share button, participant count
+//     ├── <RoomHeader>     — room code, share button, participant count, name edit
 //     ├── <ConnectionBanner> — synced/reconnecting/disconnected
+//     ├── <ParticipantList> — sidebar with participant names/colors
 //     ├── {host badge}     — crown icon if current user is host
 //     └── <Tldraw>         — full whiteboard canvas via useSync
 //
-// Dependencies: useAnonymousIdentity (T-004), useSync (@tldraw/sync), App.tsx router (T-007)
+// Dependencies: useAnonymousIdentity (T-004), useParticipants (T-011),
+//               useSync (@tldraw/sync), App.tsx router (T-007)
 
+import { useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { useSync } from "@tldraw/sync";
 import { Tldraw } from "tldraw";
 import { useAnonymousIdentity } from "../hooks/useAnonymousIdentity";
+import { useParticipants } from "../hooks/useParticipants";
 import { myAssetStore } from "../assetStore";
 
 // ─── Loading Screen ───────────────────────────────────────────────
@@ -47,24 +52,49 @@ function ErrorScreen({ message, onRetry }: { message: string; onRetry: () => voi
   );
 }
 
-// ─── Room Header ──────────────────────────────────────────────────
+// ─── Room Header — with inline name editing ───────────────────────
 
 function RoomHeader({
   roomId,
   participantCount,
   isHost,
+  name,
+  onNameChange,
 }: {
   roomId: string;
   participantCount: number;
   isHost: boolean;
+  name: string;
+  onNameChange: (name: string) => void;
 }) {
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState(name);
+
   const handleCopyCode = () => {
     navigator.clipboard.writeText(roomId).catch(() => {});
   };
 
   const handleShare = () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).catch(() => {});
+    navigator.clipboard.writeText(window.location.href).catch(() => {});
+  };
+
+  const commitName = () => {
+    const trimmed = draftName.trim();
+    if (trimmed.length >= 2 && trimmed.length <= 30) {
+      onNameChange(trimmed);
+    } else {
+      // Reset to current name if invalid
+      setDraftName(name);
+    }
+    setEditingName(false);
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") commitName();
+    if (e.key === "Escape") {
+      setDraftName(name);
+      setEditingName(false);
+    }
   };
 
   return (
@@ -79,6 +109,33 @@ function RoomHeader({
         <span style={styles.participantCount}>
           {participantCount} {participantCount === 1 ? "participante" : "participantes"}
         </span>
+      </div>
+
+      <div style={styles.headerCenter}>
+        {/* Name display / inline edit */}
+        {editingName ? (
+          <input
+            autoFocus
+            type="text"
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={handleNameKeyDown}
+            style={styles.nameInput}
+            maxLength={30}
+          />
+        ) : (
+          <button
+            onClick={() => {
+              setDraftName(name);
+              setEditingName(true);
+            }}
+            style={styles.nameDisplay}
+            title="Haz clic para cambiar tu nombre"
+          >
+            {name}
+          </button>
+        )}
       </div>
 
       <div style={styles.headerRight}>
@@ -161,20 +218,63 @@ function getConnectionState(status: {
   }
 }
 
+// ─── Participant List ─────────────────────────────────────────────
+
+function ParticipantList({
+  participants,
+  currentUserId,
+}: {
+  participants: { id: string; name: string; color: string; role: string }[];
+  currentUserId: string;
+}) {
+  if (participants.length <= 1) return null; // Only us — no need to show
+
+  return (
+    <div style={styles.participantSidebar}>
+      <div style={styles.participantSidebarTitle}>Participantes</div>
+      {participants.map((p) => (
+        <div
+          key={p.id}
+          style={{
+            ...styles.participantRow,
+            fontWeight: p.id === currentUserId ? 700 : 400,
+          }}
+        >
+          <span
+            style={{
+              ...styles.participantDot,
+              backgroundColor: p.color,
+            }}
+          />
+          <span style={styles.participantName}>
+            {p.name}
+            {p.id === currentUserId ? " (tú)" : ""}
+          </span>
+          {p.role === "HOST" && (
+            <span style={styles.participantHostChip}>Host</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── RoomPage — Main Component ────────────────────────────────────
 
 export default function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const location = useLocation();
-  const { id, name, color } = useAnonymousIdentity();
+  const { id, name, color, setName } = useAnonymousIdentity();
 
-  // Host detection: derived from navigation state (LandingPage can pass isHost).
-  // PR 6 will wire this from the server's roomState protocol message instead.
-  const isHost = (location.state as { isHost?: boolean })?.isHost ?? false;
+  // Second WebSocket for custom protocol (join/leave/nameChange/hostChange).
+  // The server's handleSyncConnection handles both TLSocketRoom CRDT sync
+  // AND custom JSON messages on the same endpoint — we just connect twice.
+  const { participants, hostId } = useParticipants(roomId!, { id, name, color });
 
-  // Participant count — initialized to 1 (ourselves).
-  // PR 6 will wire this to the actual server participant list.
-  const participantCount = 1;
+  // Host detection: now server-driven via hostId from custom protocol.
+  // Navigation state is a fallback for the brief window before roomState arrives.
+  const navIsHost = (location.state as { isHost?: boolean })?.isHost ?? false;
+  const isHost = hostId === id || (hostId === null && navIsHost);
 
   // Build sync server URI.
   // Dev: direct ws://localhost:8080.  Prod: VITE_SYNC_SERVER env var.
@@ -187,12 +287,18 @@ export default function RoomPage() {
     assets: myAssetStore,
   });
 
-  // Loading state
+  // Loading state - canvas still loading, but participants may already be received
   if (storeWithStatus.status === "loading") {
     return (
-      <div>
+      <div style={styles.container}>
         <ConnectionBanner status={{ kind: "loading" }} />
-        <RoomHeader roomId={roomId!} participantCount={participantCount} isHost={isHost} />
+        <RoomHeader
+          roomId={roomId!}
+          participantCount={participants.length || 1}
+          isHost={isHost}
+          name={name}
+          onNameChange={setName}
+        />
         <LoadingScreen />
       </div>
     );
@@ -201,9 +307,15 @@ export default function RoomPage() {
   // Error state
   if (storeWithStatus.status === "error") {
     return (
-      <div>
+      <div style={styles.container}>
         <ConnectionBanner status={{ kind: "error" }} />
-        <RoomHeader roomId={roomId!} participantCount={participantCount} isHost={isHost} />
+        <RoomHeader
+          roomId={roomId!}
+          participantCount={participants.length || 1}
+          isHost={isHost}
+          name={name}
+          onNameChange={setName}
+        />
         <ErrorScreen
           message={
             storeWithStatus.error instanceof Error
@@ -225,9 +337,18 @@ export default function RoomPage() {
           online: storeWithStatus.connectionStatus === "online",
         }}
       />
-      <RoomHeader roomId={roomId!} participantCount={participantCount} isHost={isHost} />
-      <div style={styles.canvas}>
-        <Tldraw store={storeWithStatus.store} />
+      <RoomHeader
+        roomId={roomId!}
+        participantCount={participants.length}
+        isHost={isHost}
+        name={name}
+        onNameChange={setName}
+      />
+      <div style={styles.mainArea}>
+        <ParticipantList participants={participants} currentUserId={id} />
+        <div style={styles.canvas}>
+          <Tldraw store={storeWithStatus.store} />
+        </div>
       </div>
     </div>
   );
@@ -250,11 +371,18 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: "1px solid #E5E7EB",
     backgroundColor: "#FAFAFA",
     flexShrink: 0,
+    gap: 12,
   },
   headerLeft: {
     display: "flex",
     alignItems: "center",
     gap: 12,
+  },
+  headerCenter: {
+    display: "flex",
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
   },
   headerRight: {
     display: "flex",
@@ -277,6 +405,30 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     color: "#6B7280",
   },
+  nameDisplay: {
+    padding: "2px 10px",
+    borderRadius: 6,
+    backgroundColor: "transparent",
+    border: "1px solid transparent",
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#111827",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    transition: "border-color 0.15s",
+  },
+  nameInput: {
+    padding: "2px 10px",
+    borderRadius: 6,
+    border: "1px solid #6366F1",
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#111827",
+    outline: "none",
+    fontFamily: "inherit",
+    width: 180,
+    textAlign: "center" as const,
+  },
   hostBadge: {
     padding: "4px 10px",
     borderRadius: 6,
@@ -296,10 +448,62 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#374151",
     fontFamily: "inherit",
   },
+  // Participant sidebar
+  mainArea: {
+    display: "flex",
+    flex: 1,
+    overflow: "hidden",
+  },
+  participantSidebar: {
+    width: 200,
+    flexShrink: 0,
+    borderRight: "1px solid #E5E7EB",
+    backgroundColor: "#F9FAFB",
+    padding: "12px 0",
+    overflowY: "auto",
+  },
+  participantSidebarTitle: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#9CA3AF",
+    textTransform: "uppercase" as const,
+    letterSpacing: 1,
+    padding: "0 14px 8px",
+  },
+  participantRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "6px 14px",
+    fontSize: 13,
+    color: "#374151",
+  },
+  participantDot: {
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+  participantName: {
+    flex: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
+  },
+  participantHostChip: {
+    fontSize: 10,
+    fontWeight: 600,
+    color: "#92400E",
+    backgroundColor: "#FEF3C7",
+    padding: "1px 6px",
+    borderRadius: 4,
+  },
+  // Canvas
   canvas: {
     flex: 1,
     overflow: "hidden",
   },
+  // Screens
   centeredScreen: {
     display: "flex",
     alignItems: "center",
