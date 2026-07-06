@@ -29,9 +29,9 @@ Chain strategy: feature-branch-chain
 
 ## Phase 1: Scaffold & Shared Types — PR 1
 
-- [ ] T-001 Create `shared/types.ts`: `RoomCode`, `ParticipantRole`, `Participant` (id, name, color, role, connectedAt), `CreateRoomResponse`, `RoomStatus`, `ClientMessage`, `ServerMessage`. (~25 lines) — Deps: none — Reqs: ROOM-001, ROOM-006
-- [ ] T-002 Scaffold `client/`: `package.json` (vite, react, react-router, @tldraw/tldraw, @tldraw/sync, @tanstack/react-query), `vite.config.ts` (proxy /api→:8080, /ws→ws://:8080), `tsconfig.json`, `index.html`. (~110 lines) — Deps: none — Reqs: all client-side
-- [ ] T-003 Scaffold `server/`: `package.json` (express, ws, @tldraw/sync-core, uuid), `tsconfig.json`, `server/src/index.ts` skeleton (Express :8080, ws.Server attach). (~70 lines) — Deps: none — Reqs: all server-side
+- [x] T-001 Create `shared/types.ts`: `RoomCode`, `ParticipantRole`, `Participant` (id, name, color, role, connectedAt), `CreateRoomResponse`, `RoomStatus`, `ClientMessage`, `ServerMessage`. (~25 lines) — Deps: none — Reqs: ROOM-001, ROOM-006
+- [x] T-002 Scaffold `client/`: `package.json` (vite, react, react-router, @tldraw/tldraw, @tldraw/sync, @tanstack/react-query), `vite.config.ts` (proxy /api→:8080, /ws→ws://:8080), `tsconfig.json`, `index.html`. (~110 lines) — Deps: none — Reqs: all client-side
+- [x] T-003 Scaffold `server/`: `package.json` (express, ws, @tldraw/sync-core, uuid), `tsconfig.json`, `server/src/index.ts` skeleton (Express :8080, ws.Server attach). (~70 lines) — Deps: none — Reqs: all server-side
 
 ## Phase 2: Client Hooks — PR 2
 
