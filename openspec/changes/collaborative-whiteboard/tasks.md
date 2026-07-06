@@ -40,8 +40,8 @@ Chain strategy: feature-branch-chain
 
 ## Phase 3: Landing Page & Router — PR 3
 
-- [ ] T-006 Create `client/src/components/LandingPage.tsx`: hero card, editable name display (from T-004 hook), "Create Whiteboard" button (POST /api/rooms → navigate /room/:code), join section (code input → GET /api/rooms/:code → navigate or "Room not found" error). (~120 lines) — Deps: T-004 — Reqs: ROOM-001, ROOM-002, IDENTITY-003
-- [ ] T-007 Wire `App.tsx` + `main.tsx`: React Router v7 `<BrowserRouter>`, routes `/`→LandingPage, `/room/:roomId`→RoomPage placeholder, `<QueryClientProvider>`. (~20 lines) — Deps: T-006 — Reqs: ROOM-002
+- [x] T-006 Create `client/src/components/LandingPage.tsx`: hero card, editable name display (from T-004 hook), "Create Whiteboard" button (POST /api/rooms → navigate /room/:code), join section (code input → GET /api/rooms/:code → navigate or "Room not found" error). (~120 lines) — Deps: T-004 — Reqs: ROOM-001, ROOM-002, IDENTITY-003
+- [x] T-007 Wire `App.tsx` + `main.tsx`: React Router v7 `<BrowserRouter>`, routes `/`→LandingPage, `/room/:roomId`→RoomPage placeholder, `<QueryClientProvider>`. (~20 lines) — Deps: T-006 — Reqs: ROOM-002
 
 ## Phase 4: Sync Server — PR 4
 
