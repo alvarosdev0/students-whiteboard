@@ -128,7 +128,7 @@ export default function RoomPage() {
   const [timedOut, setTimedOut] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  const { participants, hostId } = useParticipants(roomId!, { id, name, color });
+  const { participants, hostId } = useParticipants(roomId!, { name, color });
   const isHost = hostId === id || (hostId === null && (location.state as any)?.isHost);
 
   const syncServer = import.meta.env.VITE_SYNC_SERVER || "ws://localhost:8080";

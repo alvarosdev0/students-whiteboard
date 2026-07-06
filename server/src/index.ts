@@ -4,7 +4,7 @@ import { WebSocketServer } from "ws";
 import { createServer } from "node:http";
 import { IncomingMessage } from "node:http";
 import { createRoom, roomExists, getRoomStatus } from "./rooms.js";
-import { handleSyncConnection } from "./sync.js";
+import { handleSyncConnection, joinRoom, updateName, listParticipants } from "./sync.js";
 
 const PORT = Number(process.env.PORT) || 8080;
 
@@ -37,6 +37,32 @@ app.get("/api/rooms/:code", (req, res) => {
   const { code } = req.params;
   const status = getRoomStatus(code.toUpperCase());
   res.json(status);
+});
+
+// Join a room (register participant)
+app.post("/api/rooms/:code/join", (req, res) => {
+  const code = req.params.code.toUpperCase();
+  if (!roomExists(code)) return res.status(404).json({ error: "Room not found" });
+  const { name, color } = req.body;
+  if (!name || !color) return res.status(400).json({ error: "name and color required" });
+  const { participant } = joinRoom(code, name, color);
+  res.json({ participant });
+});
+
+// Update participant name
+app.patch("/api/rooms/:code/name", (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const { participantId, name } = req.body;
+  if (!participantId || !name) return res.status(400).json({ error: "participantId and name required" });
+  if (!updateName(code, participantId, name)) return res.status(404).json({ error: "Participant not found" });
+  res.json({ ok: true });
+});
+
+// Get participants list
+app.get("/api/rooms/:code/participants", (req, res) => {
+  const code = req.params.code.toUpperCase();
+  if (!roomExists(code)) return res.status(404).json({ error: "Room not found" });
+  res.json(listParticipants(code));
 });
 
 // ---------------------------------------------------------------------------

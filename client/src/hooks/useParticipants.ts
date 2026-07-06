@@ -1,112 +1,54 @@
-// === useParticipants — Custom Protocol Participants via Second WebSocket ===
-// T-011: Opens a lightweight WebSocket to /sync/:roomCode for the custom
-// protocol (join/nameChange) separate from tldraw's internal useSync socket.
-//
-// The server's handleSyncConnection already handles both TLSocketRoom CRDT
-// sync AND custom JSON messages (join/leave/nameChange/hostChange) on the
-// same endpoint — we just need a second connection for our app-level protocol.
-
 import { useState, useEffect, useRef } from "react";
-import type { Participant, ServerMessage } from "@shared/types";
+import type { Participant } from "@shared/types";
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
+const POLL_MS = 3000;
 
-export function useParticipants(
-  roomCode: string,
-  identity: { id: string; name: string; color: string },
-) {
+export function useParticipants(roomCode: string, identity: { name: string; color: string }) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [hostId, setHostId] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  const participantIdRef = useRef<string | null>(null);
+  const joinedRef = useRef(false);
 
-  // -------------------------------------------------------------------------
-  // WebSocket lifecycle
-  // -------------------------------------------------------------------------
-
+  // Join on mount
   useEffect(() => {
-    const syncServer =
-      import.meta.env.VITE_SYNC_SERVER || "ws://localhost:8080";
-    const ws = new WebSocket(`${syncServer}/sync/${roomCode}`);
-    wsRef.current = ws;
+    if (joinedRef.current) return;
+    joinedRef.current = true;
 
-    ws.onopen = () => {
-      ws.send(
-        JSON.stringify({
-          type: "join",
-          name: identity.name,
-          color: identity.color,
-        }),
-      );
-    };
+    fetch(`/api/rooms/${roomCode}/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: identity.name, color: identity.color }),
+    })
+      .then(r => r.json())
+      .then(d => { participantIdRef.current = d.participant?.id ?? null; })
+      .catch(() => {});
+  }, [roomCode]);
 
-    ws.onmessage = (event: MessageEvent) => {
-      let msg: ServerMessage;
-      try {
-        msg = JSON.parse(event.data as string) as ServerMessage;
-      } catch {
-        return; // Not JSON — ignore (binary tldraw data won't come on this socket)
-      }
-
-      switch (msg.type) {
-        case "roomState":
-          setParticipants(msg.participants);
-          setHostId(msg.hostId || null);
-          break;
-
-        case "participantJoined":
-          setParticipants((prev) => [
-            ...prev.filter((p) => p.id !== msg.participant.id),
-            msg.participant,
-          ]);
-          break;
-
-        case "participantLeft":
-          setParticipants((prev) => prev.filter((p) => p.id !== msg.id));
-          break;
-
-        case "nameChanged":
-          setParticipants((prev) =>
-            prev.map((p) =>
-              p.id === msg.id ? { ...p, name: msg.name } : p,
-            ),
-          );
-          break;
-
-        case "hostChanged":
-          setHostId(msg.newHostId);
-          setParticipants((prev) =>
-            prev.map((p) => ({
-              ...p,
-              role: p.id === msg.newHostId ? ("HOST" as const) : ("PARTICIPANT" as const),
-            })),
-          );
-          break;
-
-        // cursorMove / error — silently ignored for now (can be wired later)
-        default:
-          break;
-      }
-    };
-
-    return () => {
-      ws.close();
-      wsRef.current = null;
-    };
-  }, [roomCode]); // reconnect only if room changes
-
-  // -------------------------------------------------------------------------
-  // Name-change propagation
-  // -------------------------------------------------------------------------
-
+  // Poll participants
   useEffect(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({ type: "nameChange", name: identity.name }),
-      );
-    }
-  }, [identity.name]);
+    const poll = () => {
+      fetch(`/api/rooms/${roomCode}/participants`)
+        .then(r => r.json())
+        .then(d => {
+          setParticipants(d.participants ?? []);
+          setHostId(d.hostId ?? null);
+        })
+        .catch(() => {});
+    };
+    poll();
+    const i = setInterval(poll, POLL_MS);
+    return () => clearInterval(i);
+  }, [roomCode]);
 
-  return { participants, hostId } as const;
+  // Send name change
+  useEffect(() => {
+    if (!participantIdRef.current) return;
+    fetch(`/api/rooms/${roomCode}/name`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ participantId: participantIdRef.current, name: identity.name }),
+    }).catch(() => {});
+  }, [identity.name, roomCode]);
+
+  return { participants, hostId, participantId: participantIdRef.current };
 }
