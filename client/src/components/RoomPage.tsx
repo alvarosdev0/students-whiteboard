@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useSync } from "@tldraw/sync";
 import { Tldraw } from "tldraw";
 import { useAnonymousIdentity } from "../hooks/useAnonymousIdentity";
 import { useParticipants } from "../hooks/useParticipants";
+import { useDark } from "../App";
 import { myAssetStore } from "../assetStore";
 
 const ROOM_TIMEOUT_MS = 5000;
@@ -125,8 +126,17 @@ export default function RoomPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id, name, color, setName } = useAnonymousIdentity();
+  const { dark } = useDark();
   const [timedOut, setTimedOut] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const editorRef = useRef<any>(null);
+
+  // Sync dark mode to tldraw
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.user.updateUserPreferences({ colorScheme: dark ? "dark" : "light" } as any);
+    }
+  }, [dark]);
 
   const { participants, hostId } = useParticipants(roomId!, { name, color });
   const isHost = hostId === id || (hostId === null && (location.state as any)?.isHost);
@@ -194,7 +204,12 @@ export default function RoomPage() {
         name={name} onNameChange={setName} onCopy={copyCode} />
       <div style={S.mainArea}>
         <ParticipantList participants={participants} currentUserId={id} />
-        <div style={S.canvas}><Tldraw store={storeWithStatus.store} /></div>
+        <div style={S.canvas}>
+          <Tldraw
+            store={storeWithStatus.store}
+            onMount={(editor) => { editorRef.current = editor; }}
+          />
+        </div>
       </div>
       {toast && <Toast msg={toast} />}
     </div>

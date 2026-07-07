@@ -1,9 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import LandingPage from "./components/LandingPage";
 import RoomPage from "./components/RoomPage";
+
+// ─── Dark mode context ────────────────────────────────────────────
+
+export const DarkContext = createContext({ dark: false, toggle: () => {} });
+export const useDark = () => useContext(DarkContext);
 
 // ─── 404 ──────────────────────────────────────────────────────────
 
@@ -48,12 +53,14 @@ export default function App() {
   }, [dark]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-      <button onClick={() => setDark(!dark)} style={S.darkToggle} title={dark ? "Modo claro" : "Modo oscuro"}>
-        {dark ? "☀️" : "🌙"}
-      </button>
-    </QueryClientProvider>
+    <DarkContext.Provider value={{ dark, toggle: () => setDark(!dark) }}>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+        <button onClick={() => setDark(!dark)} style={S.darkToggle} title={dark ? "Modo claro" : "Modo oscuro"}>
+          {dark ? "☀️" : "🌙"}
+        </button>
+      </QueryClientProvider>
+    </DarkContext.Provider>
   );
 }
 
