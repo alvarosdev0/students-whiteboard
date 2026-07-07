@@ -10,7 +10,29 @@
     <style>
       *, *::before, *::after { box-sizing: border-box; }
       body { margin: 0; font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif; }
-      body.dark { background: #111827; color: #F3F4F6; }
+      :root {
+        --bg-primary: #F0F4FF;
+        --bg-card: #FFFFFF;
+        --bg-input: #F9FAFB;
+        --text-primary: #1E1B4B;
+        --text-secondary: #6B7280;
+        --text-muted: #9CA3AF;
+        --border: #E5E7EB;
+        --accent: #6366F1;
+        --header-bg: #FAFAFA;
+        --sidebar-bg: #F9FAFB;
+      }
+      body.dark {
+        --bg-primary: #111827;
+        --bg-card: #1F2937;
+        --bg-input: #374151;
+        --text-primary: #F3F4F6;
+        --text-secondary: #9CA3AF;
+        --text-muted: #6B7280;
+        --border: #374151;
+        --header-bg: #1F2937;
+        --sidebar-bg: #111827;
+      }
     </style>
   </head>
   <body>

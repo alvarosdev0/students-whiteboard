@@ -62,7 +62,7 @@ export default function App() {
 const S: Record<string, React.CSSProperties> = {
   centered: { minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"inherit" },
   title404: { fontSize:72, fontWeight:800, color:"#e5e7eb", margin:0, lineHeight:1 },
-  text: { fontSize:18, color:"#374151", marginTop:8 },
+  text: { fontSize:18, color:"var(--text-secondary)", marginTop:8 },
   btn: { display:"inline-block", marginTop:16, padding:"10px 24px", borderRadius:10, background:"#6366F1", color:"#fff", textDecoration:"none", fontSize:15, fontWeight:600 },
-  darkToggle: { position:"fixed" as const, bottom:16, right:16, width:44, height:44, borderRadius:"50%", border:"1px solid #D1D5DB", background:"#fff", fontSize:20, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999, boxShadow:"0 2px 8px rgba(0,0,0,0.12)" },
+  darkToggle: { position:"fixed" as const, bottom:16, right:16, width:44, height:44, borderRadius:"50%", border:"1px solid var(--border)", background:"var(--bg-card)", fontSize:20, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999, boxShadow:"0 2px 8px rgba(0,0,0,0.12)" },
 };
