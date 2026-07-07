@@ -50,9 +50,9 @@ Chain strategy: feature-branch-chain
 
 ## Phase 5: Room Page & Whiteboard — PR 5
 
-- [ ] T-010 Create `client/src/components/RoomPage.tsx`: `<RoomHeader>` (room code, share `copyToClipboard`, participant count), `<TldrawEditor>` with `useSync({uri})`, `<ParticipantList>` sidebar (name from T-004, color, role badge), `<ConnectionBanner>` placeholder, `<ClearCanvas>` action (confirm→wipe+delete key). (~160 lines) — Deps: T-005, T-007, T-009 — Reqs: CANVAS-001..007, SYNC-001..004, PERSIST-005
+- [x] T-010 Create `client/src/components/RoomPage.tsx`: `<RoomHeader>` (room code, share `copyToClipboard`, participant count), `<Tldraw>` with `useSync({uri})`, `<ConnectionBanner>` with 3 states (connected/reconnecting/disconnected), host badge via navigation state, loading/error screens. Also: `client/src/assetStore.ts` for image assets. (~381 lines) — Deps: T-005, T-007, T-009 — Reqs: CANVAS-001..007, SYNC-001..004, PERSIST-005
 
 ## Phase 6: Polish & Deploy — PR 6
 
-- [ ] T-011 Add connection states + error handling: ConnectionBanner with 4 states (connecting→synced green→reconnecting yellow→disconnected red+retry), "Room not found" redirect, image >10MB rejection toast, host-transfer notification, empty textbox blur-delete. (~80 lines) — Deps: T-010 — Reqs: SYNC-004, ROOM-002, CANVAS-004
-- [ ] T-012 Deploy config + unit tests: `vercel.json` (SPA rewrites, env), Railway env (`PORT=8080`), Vitest tests for room code generation (T-008), name generator (T-004), localStorage hook (T-005). (~120 lines) — Deps: T-004, T-005, T-008 — Reqs: ROOM-001, IDENTITY-001, PERSIST-001
+- [x] T-011 Add connection states + error handling: ConnectionBanner with 4 states (connecting→synced green→reconnecting yellow→disconnected red+retry), "Room not found" redirect, image >10MB rejection toast, host-transfer notification, empty textbox blur-delete. (~80 lines) — Deps: T-010 — Reqs: SYNC-004, ROOM-002, CANVAS-004
+- [x] T-012 Deploy config + unit tests: `vercel.json` (SPA rewrites, env), Railway env (`PORT=8080`), Vitest tests for room code generation (T-008), name generator (T-004), localStorage hook (T-005). (~120 lines) — Deps: T-004, T-005, T-008 — Reqs: ROOM-001, IDENTITY-001, PERSIST-001
